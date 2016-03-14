@@ -1,4 +1,5 @@
 from __future__ import print_function
+
 import os
 import platform
 import sys
@@ -7,8 +8,9 @@ from pkg_resources import resource_filename
 from PySide import QtCore, QtGui
 
 from onecodex_uploader.mainwindow_ui import Ui_MainWindow
-from onecodex_uploader.upload import upload_file, get_apikey, UploadException
+from onecodex_uploader.upload import check_version, upload_file, get_apikey, UploadException
 from onecodex_uploader.sniff import sniff_file
+from onecodex_uploader.version import __version__
 
 OC_SERVER = 'https://app.onecodex.com/'
 
@@ -148,6 +150,13 @@ class OCUploader(QtGui.QMainWindow):
 
         # set some globals
         self.lock = QtCore.QMutex()
+
+        # version check
+        should_quit, error_msg = check_version(__version__, OC_SERVER, 'gui')
+        if error_msg is not None:
+            QtGui.QMessageBox.warning(self, 'Error!', error_msg, QtGui.QMessageBox.Ok)
+        if should_quit:
+            QtGui.QApplication.instance().quit()
 
     def upload_button(self):
         self.ui.fileButton.hide()

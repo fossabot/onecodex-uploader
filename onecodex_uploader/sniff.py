@@ -3,58 +3,79 @@
 Sniffing functions for FASTA/FASTQ files
 """
 from __future__ import print_function, division
+
 import gzip
 import os
 import re
 from collections import Counter
 
+COMMON_NA = set('ACGNTUX')
+IUPAC_NA = set('ABCDGHIKMNRSTUVWXY')
+IUPAC_AA = set('ABCDEFGHIKLMNPQRSTUVWXYZ*')
+
 
 def sniff_file(filename, compress=None):
+    """
+    Given a sequencing file, return a JSON blob of relevant summary statistics
+    about that file.
+    """
     if os.path.getsize(filename) < 35:
         return {'file_type': 'bad', 'err': 'File is too small'}
+    elif not os.path.exists(filename):
+        return {'file_type': 'bad', 'err': 'File does not exist'}
 
     if compress is None:
-        with open(filename, 'r') as f:
-            start = f.read(1)
-            data = f.read(1000000)
+        with open(filename, 'r') as seq_file:
+            start = seq_file.read(1)
+            data = seq_file.read(1000000)
     elif compress == 'gzip':
-        with gzip.open(filename, 'r') as f:
-            start = f.read(1)
-            data = f.read(1000000)
+        with gzip.open(filename, 'r') as seq_file:
+            start = seq_file.read(1)
+            data = seq_file.read(1000000)
 
     # TODO: check for bzip?
     if start == '\x1f' and compress is None:
         # it was a gzip file, try opening it that way
         return sniff_file(filename, 'gzip')
+
+    status = sniff(start, data)
+
+    if compress == 'gzip':
+        status['compression'] = 'gzip'
     else:
-        # scan through the file and get ids/seq_counts (and quality info)
-        if start == '>':
-            seq_count, ids, status = read_fasta(data)
-        elif start == '@':
-            seq_count, ids, status = read_fastq(data)
-        else:
-            return {'file_type': 'bad', 'msg': 'File is not a valid FASTA or FASTQ file'}
-
-        num_recs = len(ids)
-        if num_recs < 1:
-            return {'file_type': 'bad', 'msg': 'No records found in file'}
-        elif sum(seq_count.values()) < 1:
-            return {'file_type': 'bad', 'msg': 'No sequence data found in file'}
-        status.update(sniff_bases(seq_count, num_recs))
-        status.update(sniff_ids(ids))
-
-        if compress == 'gzip':
-            status['compression'] = 'gzip'
-        else:
-            status['compression'] = 'none'
-        return status
+        status['compression'] = 'none'
+    return status
 
 
-def sniff_bases(seq_count, num_recs=1.0):
-    COMMON_NA = set('ACGNTUX')
-    IUPAC_NA = set('ABCDGHIKMNRSTUVWXY')
-    IUPAC_AA = set('ABCDEFGHIKLMNPQRSTUVWXYZ*')
+def sniff(start, data):
+    """
+    Given the first byte (start) and an unspecified (maybe not all) amount of
+    a FASTA or FASTQ, return summary statistics.
+    """
+    # scan through the file and get ids/seq_counts (and quality info)
+    if start == '>':
+        seq_count, ids, status = read_fasta(data)
+    elif start == '@':
+        seq_count, ids, status = read_fastq(data)
+    else:
+        return {'file_type': 'bad', 'msg': 'File is not a valid FASTA or FASTQ file'}
 
+    num_recs = len(ids)
+    if num_recs < 1:
+        return {'file_type': 'bad', 'msg': 'No records found in file'}
+    elif sum(seq_count.values()) < 1:
+        return {'file_type': 'bad', 'msg': 'No sequence data found in file'}
+    status.update(sniff_bases(seq_count, num_recs))
+    status.update(sniff_ids(ids))
+
+    return status
+
+
+def sniff_bases(seq_count):
+    """
+    Examine the basepair Counter statistics from a reads file and return
+    pertinent statistics.
+    """
     status = {}
 
     # check if there are newlines in the sequence
@@ -113,6 +134,10 @@ def sniff_bases(seq_count, num_recs=1.0):
 
 
 def sniff_ids(ids):
+    """
+    Scan through the IDs from a FASTA/Q and return pertinant statistics.
+
+    """
     status = {}
 
     # check for interleaving (replace 2 with 1 and see if every two are duplicates)
@@ -123,6 +148,7 @@ def sniff_ids(ids):
                                 i in range(len(singled) // 2)) and len(ids) > 1
     return status
 
+    # TODO: return id_est_len to help estimate # of sequences in file
     # TODO: determine id type? (sequencer, assembler, database ...)
 
     # # https://en.wikipedia.org/wiki/FASTA_format#Sequence_identifiers
@@ -173,25 +199,14 @@ def sniff_ids(ids):
     #     # http://wiki.christophchamp.com/index.php/FASTQ_format
     #     'illumina': '',
     # }
-    return status
-
-
-fasta_re = re.compile(r"""
-                      (?P<id>[^\n]+)\n  # the identifier line
-                      (?P<seq>[^>]+)  # the sequence
-                      (?:\n>|\Z)  # start of the next record
-                      """, re.VERBOSE)
-
-fastq_re = re.compile(r"""
-                      (?P<id>[^\n]+)\n
-                      (?P<seq>[^\n]+)\n
-                      \+(?P<id2>[^\n]+)\n
-                      (?P<qual>.+)
-                      (?:\n@|\Z)
-                      """, re.DOTALL + re.VERBOSE)
 
 
 def read_fasta(data):
+    fasta_re = re.compile(r"""
+        (?P<id>[^\n]+)\n  # the identifier line
+        (?P<seq>[^>]+)  # the sequence
+        (?:\n>|\Z)  # start of the next record
+    """, re.VERBOSE)
     ids = []
     seq_count = Counter()
     for match in fasta_re.finditer(data):
@@ -202,6 +217,13 @@ def read_fasta(data):
 
 
 def read_fastq(data):
+    fastq_re = re.compile(r"""
+        (?P<id>[^\n]+)\n
+        (?P<seq>[^\n]+)\n
+        \+(?P<id2>[^\n]+)\n
+        (?P<qual>.+)
+        (?:\n@|\Z)
+    """, re.DOTALL + re.VERBOSE)
     status = {'file_type': 'fastq'}
     qual_set = set()
     ids = []
