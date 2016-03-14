@@ -58,3 +58,4 @@ app = BUNDLE(
         'NSHighResolutionCapable': 'True'
     }
 )
+os.remove('dist/uploader')

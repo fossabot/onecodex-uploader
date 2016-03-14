@@ -52,6 +52,7 @@ class FileViewer(QtGui.QListView):
 class FileListModel(QtCore.QAbstractListModel):
     def __init__(self, parent=None):
         super(FileListModel, self).__init__(parent)
+        self.parent = parent
         self.file_names = []
         self.file_info = []
 
@@ -82,10 +83,12 @@ class FileListModel(QtCore.QAbstractListModel):
 
         qc_results = sniff_file(filename)
         if qc_results['file_type'] == 'bad':
-            QtGui.QMessageBox.critical(self, 'Error!', qc_results['msg'], QtGui.QMessageBox.Abort)
+            QtGui.QMessageBox.critical(self.parent, 'Error!', qc_results['msg'],
+                                       QtGui.QMessageBox.Abort)
             return
         elif qc_results['seq_type'] == 'aa':
-            QtGui.QMessageBox.critical(self, 'Error!', 'Amino acid FASTX files not supported',
+            QtGui.QMessageBox.critical(self.parent, 'Error!',
+                                       'Amino acid FASTX files not supported',
                                        QtGui.QMessageBox.Abort)
             return
 
@@ -132,7 +135,7 @@ class OCUploader(QtGui.QMainWindow):
 
         # set up the file list
         self.files_model = FileListModel(self)
-        view = FileViewer()
+        view = FileViewer(self)
         view.setModel(self.files_model)
         view.file_dropped.connect(self.files_model.add_file)
         self.ui.fileListLayout.addWidget(view)
@@ -177,9 +180,8 @@ class OCUploader(QtGui.QMainWindow):
             # apikey is None is username/password failed, apikey == '' if user has no apikey
             QtGui.QMessageBox.critical(self, 'Error!', 'Could not authenticate successfully.',
                                        QtGui.QMessageBox.Abort)
-        elif self.file_name == '':
-            QtGui.QMessageBox.critical(self, 'Error!', 'No file selected.',
-                                       QtGui.QMessageBox.Abort)
+        elif len(self.files_model.file_names) == 0:
+            QtGui.QMessageBox.critical(self, 'Error!', 'No file selected.', QtGui.QMessageBox.Abort)
         else:
             filename = self.files_model.file_names[0]
             try:

@@ -9,6 +9,7 @@ client only allows uploads of <5 Gb).
 Installation
 ------------
 
+.. code:: bash
     # first install pyside and qt with one of the following commands
     brew install pyside pyside-tools qt
     sudo apt-get install pyside # FIXME
