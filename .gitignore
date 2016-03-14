@@ -1,0 +1,8 @@
+*.pyc
+*_ui.py
+*.icns
+
+.eggs/
+build/
+dist/
+venv/
