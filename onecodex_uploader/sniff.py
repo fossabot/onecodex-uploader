@@ -20,9 +20,9 @@ def sniff_file(filename, compress=None):
     about that file.
     """
     if os.path.getsize(filename) < 35:
-        return {'file_type': 'bad', 'err': 'File is too small'}
+        return {'file_type': 'bad', 'msg': 'File is too small'}
     elif not os.path.exists(filename):
-        return {'file_type': 'bad', 'err': 'File does not exist'}
+        return {'file_type': 'bad', 'msg': 'File does not exist'}
 
     if compress is None:
         with open(filename, 'r') as seq_file:
@@ -71,7 +71,7 @@ def sniff(start, data):
     return status
 
 
-def sniff_bases(seq_count):
+def sniff_bases(seq_count, num_recs):
     """
     Examine the basepair Counter statistics from a reads file and return
     pertinent statistics.
@@ -82,7 +82,7 @@ def sniff_bases(seq_count):
     status['seq_multiline'] = seq_count.pop('\n', 0) > 0 or seq_count.pop('\r', 0) > 0
 
     # TODO: strip other whitespace?
-    status['seq_est_avg_len'] = sum(seq_count.values())
+    status['seq_est_avg_len'] = sum(seq_count.values()) / num_recs
 
     # strip out gaps (and record if they were there)
     status['seq_has_gaps'] = seq_count.pop('.', 0) + seq_count.pop('-', 0) > 0
