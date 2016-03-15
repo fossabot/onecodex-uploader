@@ -63,15 +63,23 @@ def check_version(version, server_url, client='cli'):
     data = data.json()
     latest_version = data['latest_version']
 
+    if client == 'cli':
+        uploader_text = ' from http://www.onecodex.com/uploader.html'
+    else:
+        uploader_text = (' from the '
+                         '<a href="http://www.onecodex.com/uploader.html">One Codex website</a>')
+
     # TODO: once the cli route returns this, remove this outer check
     if 'min_supported_version' in data:
         min_version = data['min_supported_version']
         if version_inadequate(version, min_version):
-            return True, ('Client must upgrade to latest version (v{}); '.format(latest_version) +
-                          'this version (v{}) is no longer supported'.format(version))
+            return True, ('Please upgrade your client to the latest version ' +
+                          '(v{}){}; '.format(latest_version, uploader_text) +
+                          'this version (v{}) is no longer supported.'.format(version))
 
     if version_inadequate(version, latest_version):
-        return False, 'Client should be upgraded to latest version (v{})'.format(latest_version)
+        return False, ('Please upgrade your client to the latest version ' +
+                       '(v{}){}'.format(latest_version, uploader_text))
 
     return False, None
 

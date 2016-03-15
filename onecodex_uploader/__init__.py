@@ -141,7 +141,6 @@ class OCUploader(QtGui.QMainWindow):
         view.setModel(self.files_model)
         view.file_dropped.connect(self.files_model.add_file)
         self.ui.fileListLayout.addWidget(view)
-        self.view = view
 
         # set up the ui
         self.ui.fileButton.clicked.connect(self.select_file_button)
