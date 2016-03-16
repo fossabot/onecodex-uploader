@@ -220,8 +220,8 @@ def read_fastq(data):
     fastq_re = re.compile(r"""
         (?P<id>[^\n]+)\n
         (?P<seq>[^\n]+)\n
-        \+(?P<id2>[^\n]+)\n
-        (?P<qual>.+)
+        \+(?P<id2>[^\n]*)\n
+        (?P<qual>[^\n]+)
         (?:\n@|\Z)
     """, re.DOTALL + re.VERBOSE)
     status = {'file_type': 'fastq'}
@@ -237,15 +237,17 @@ def read_fastq(data):
             else:
                 status['qual_ids'] = 'nonmatch'
         ids.append(rec['id'])
-        qual_set.update(rec['seq'])
+        qual_set.update(rec['qual'])
         seq_count.update(Counter(rec['seq']))
 
     if 'qual_ids' not in status:
         status['qual_ids'] = 'match'
 
+    qual_set = qual_set.difference({'\n', '\r', ' ', '\t'})
     # https://en.wikipedia.org/wiki/FASTQ_format#Encoding
     printable = [chr(i) for i in range(33, 127)]
     if qual_set.issubset(printable[0:41]):
+        # we call sanger before illumina 1.8 b/c it's a technically more restricted subset
         status['qual_type'] = 'sanger'
     elif qual_set.issubset(printable[0:42]):
         status['qual_type'] = 'illumina 1.8'

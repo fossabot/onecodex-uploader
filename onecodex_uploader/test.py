@@ -20,8 +20,27 @@ def test_sniffer():
     assert not resp['seq_has_iupac']
     assert not resp['seq_has_unknowns']
 
-    assert resp['seq_est_avg_len'] == 74.
+    assert resp['seq_est_avg_len'] == 74.0
     assert resp['seq_est_gc'] == 0.5
+
+    assert not resp['interleaved']
+
+    resp = sniff_file('onecodex_uploader/test_data/test.fq')
+
+    assert resp['compression'] == 'none'
+    assert resp['file_type'] == 'fastq'
+    assert resp['seq_type'] == 'dna'
+
+    assert resp['qual_ids'] == 'blank_second'
+    assert resp['qual_type'] == 'sanger'
+
+    assert not resp['seq_multiline']
+    assert not resp['seq_has_gaps']
+    assert not resp['seq_has_lowercase']
+    assert not resp['seq_has_iupac']
+    assert resp['seq_has_unknowns']
+
+    assert resp['seq_est_avg_len'] == 31.0
 
     assert not resp['interleaved']
 
