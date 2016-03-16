@@ -137,9 +137,13 @@ class OCUploader(QtGui.QMainWindow):
         icon = QtGui.QIcon()
         icon.addFile(resource_path('icons/mac_logo.iconset/icon_16x16.png'), QtCore.QSize(16, 16))
         icon.addFile(resource_path('icons/mac_logo.iconset/icon_32x32.png'), QtCore.QSize(32, 32))
-        icon.addFile(resource_path('icons/mac_logo.iconset/icon_128x128.png'), QtCore.QSize(128, 128))
-        icon.addFile(resource_path('icons/mac_logo.iconset/icon_512x512.png'), QtCore.QSize(512, 512))
+        icon.addFile(resource_path('icons/mac_logo.iconset/icon_128x128.png'),
+                     QtCore.QSize(128, 128))
+        icon.addFile(resource_path('icons/mac_logo.iconset/icon_512x512.png'),
+                     QtCore.QSize(512, 512))
         self.setWindowIcon(icon)
+        icon = QtGui.QPixmap(resource_path('icons/plain_logo.png'))
+        self.ui.logoLabel.setPixmap(icon.scaled(64, 64))
 
         # set up the file list
         self.files_model = FileListModel(self)

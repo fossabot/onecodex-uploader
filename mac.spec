@@ -25,9 +25,12 @@ a = Analysis(
     cipher=block_cipher
 )
 
-for f in os.listdir(ASSET_DIR):
-    if f.endswith(('.png', '.ico')):
-        a.datas.append(('icons/' + f, ASSET_DIR + f, 'DATA'))
+for fdir, _, fnames in os.walk(ASSET_DIR):
+    d = os.path.normpath(os.path.relpath(fdir, ASSET_DIR))
+    for fname in fnames:
+        if fname.endswith(('.png', '.ico')):
+            a.datas.append((os.path.join('icons', d, fname),
+                            os.path.join(ASSET_DIR, d, fname), 'DATA'))
 
 pyz = PYZ(
     a.pure, a.zipped_data,
