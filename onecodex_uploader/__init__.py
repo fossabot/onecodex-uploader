@@ -15,6 +15,16 @@ from onecodex_uploader.version import __version__
 OC_SERVER = 'https://app.onecodex.com/'
 
 
+def resource_path(relative_path):
+    """
+    Get path to resource when running in PyInstaller package or otherwise
+    """
+    try:
+        return os.path.join(sys._MEIPASS, relative_path)
+    except AttributeError:
+        return resource_filename('onecodex_uploader', relative_path)
+
+
 class FileViewer(QtGui.QListView):
     file_dropped = QtCore.Signal(str)
 
@@ -106,14 +116,21 @@ class FileListModel(QtCore.QAbstractListModel):
         self.endRemoveRows()
 
 
-def resource_path(relative_path):
-    """
-    Get path to resource when running in PyInstaller package or otherwise
-    """
-    try:
-        return os.path.join(sys._MEIPASS, relative_path)
-    except AttributeError:
-        return resource_filename('onecodex_uploader', relative_path)
+class OCWorker(QtCore.QThread):
+    upload_progress = QtCore.Signal(str, float)
+    upload_finished = QtCore.Signal(str)
+
+    def __init__(self, filename, apikey):
+        QtCore.QThread.__init__(self)
+        self.filename = filename
+        self.apikey = apikey
+
+    def run(self):
+        try:
+            upload_file(self.filename, self.apikey, OC_SERVER, self.upload_progress.emit)
+            self.upload_finished.emit('')
+        except UploadException as e:
+            self.upload_finished.emit(str(e))
 
 
 class OCUploader(QtGui.QMainWindow):
@@ -159,6 +176,7 @@ class OCUploader(QtGui.QMainWindow):
 
         # set some globals
         self.lock = QtCore.QMutex()
+        self.worker = None
 
         # version check
         should_quit, error_msg = check_version(__version__, OC_SERVER, 'gui')
@@ -170,6 +188,8 @@ class OCUploader(QtGui.QMainWindow):
     def upload_button(self):
         self.ui.fileButton.hide()
         self.ui.uploadButton.setEnabled(False)
+        self.ui.usernameField.setEnabled(False)
+        self.ui.passwordField.setEnabled(False)
 
         # make the upload progress bar just show "loading" not an actual progress
         self.ui.uploadProgress.show()
@@ -191,7 +211,7 @@ class OCUploader(QtGui.QMainWindow):
             return
 
         apikey = get_apikey(username, password, OC_SERVER)
-        self.ui.uploadProgress.setRange(0, 100)
+        self.ui.uploadProgress.setRange(0, 400)
         QtGui.QApplication.instance().processEvents()
 
         if apikey is None or apikey.strip() == '':
@@ -202,32 +222,54 @@ class OCUploader(QtGui.QMainWindow):
             QtGui.QMessageBox.critical(self, 'Error!', 'No file selected.', QtGui.QMessageBox.Abort)
         else:
             filename = self.files_model.file_names[0]
-            try:
-                upload_file(filename, apikey, OC_SERVER, self.update_progress)
-                QtGui.QMessageBox.information(self, 'Success!', 'File uploaded successfully')
-                # TODO: when handling multiple files should just update the icon or something
-                self.files_model.reset()
-            except UploadException as e:
-                QtGui.QMessageBox.critical(self, 'Error!', str(e), QtGui.QMessageBox.Abort)
-
-        self.reset()
+            self.worker = OCWorker(filename, apikey)
+            self.worker.upload_progress.connect(self.upload_progress)
+            self.worker.upload_finished.connect(self.upload_finished)
+            self.worker.setTerminationEnabled(True)
+            self.worker.start()
 
     def select_file_button(self):
         open_dialog = QtGui.QFileDialog()
         open_dialog.setFileMode(QtGui.QFileDialog.ExistingFile)
         name = open_dialog.getOpenFileName(self, 'Upload File', '', 'Sequencing File (*.*)')
 
-        self.files_model.add_file(name[0])
+        if name[0] != '':
+            self.files_model.add_file(name[0])
 
-    def update_progress(self, progress):
-        self.lock.lock()
-        self.ui.uploadProgress.setValue(int(100 * progress))
-        QtGui.QApplication.instance().processEvents()
-        self.lock.unlock()
+    def upload_progress(self, filename, progress):
+        # TODO: use filename to upload progress bar directly in QListView (for multiple files)
+        if self.lock.tryLock():
+            self.ui.uploadProgress.setValue(int(400 * progress))
+            QtGui.QApplication.instance().processEvents()
+            self.lock.unlock()
+
+    def upload_finished(self, msg):
+        if msg == '':
+            QtGui.QMessageBox.information(self, 'Success!', 'File uploaded successfully')
+            self.files_model.reset()
+        else:
+            QtGui.QMessageBox.critical(self, 'Error!', msg, QtGui.QMessageBox.Abort)
+        self.reset()
 
     def reset(self):
+        self.ui.usernameField.setEnabled(True)
+        self.ui.passwordField.setEnabled(True)
         self.ui.fileButton.show()
         self.ui.uploadProgress.hide()
-        self.ui.uploadProgress.setRange(0, 100)
+        self.ui.uploadProgress.setRange(0, 400)
         self.ui.uploadProgress.reset()
         self.ui.uploadButton.setEnabled(True)
+
+    def closeEvent(self, event):
+        if self.worker is not None and self.worker.isRunning():
+            q_msg = 'Upload in progress; are you sure you want to quit?'
+            quit = QtGui.QMessageBox.question(self, 'Warning!', q_msg,
+                                              QtGui.QMessageBox.Yes, QtGui.QMessageBox.No)
+            if quit == QtGui.QMessageBox.Yes:
+                # FIXME; doesn't actually stop most of the time
+                self.worker.terminate()
+                event.accept()
+            else:
+                event.ignore()
+        else:
+            event.accept()

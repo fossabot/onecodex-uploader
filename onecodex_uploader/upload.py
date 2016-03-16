@@ -3,11 +3,13 @@ Functions for connecting to the One Codex server; these should be rolled out
 into the onecodex python library at some point for use across CLI and GUI clients
 """
 import os
+from math import floor
 import re
 
 import requests
 import boto3
 from boto3.s3.transfer import S3Transfer
+from boto3.exceptions import S3UploadFailedError
 
 
 class UploadException(Exception):
@@ -25,7 +27,7 @@ def get_apikey(username, password, server_url):
         text = session.get(server_url + 'login').text
         csrf = re.search('type="hidden" value="([^"]+)"', text).group(1)
         login_data = {'email': username, 'password': password,
-                      'csrf_token': csrf, 'next': '/api/get_user_api_key'}
+                      'csrf_token': csrf, 'next': '/api/get_token'}
         page = session.post(server_url + 'login', data=login_data)
         try:
             key = page.json()['key']
@@ -84,7 +86,7 @@ def check_version(version, server_url, client='cli'):
     return False, None
 
 
-def upload_file(filename, apikey, server_url, progress_callback=None):
+def upload_file(filename, apikey, server_url, progress_callback=None, n_callbacks=400):
     """
     Uploads a file to the One Codex server (and handles files >5Gb)
 
@@ -108,23 +110,31 @@ def upload_file(filename, apikey, server_url, progress_callback=None):
             Wrapper for progress callbacks
             """
             def __init__(self, callback, file_size):
-                self.file_size = file_size
+                self.file_size = float(file_size)
                 self.transferred = 0
                 self.callback = callback
+                self.step_size = n_callbacks  # e.g. call callback in 1000 or less intervals
 
             def __call__(self, bytes_seen):
+                per_prev_done = self.transferred / self.file_size
                 self.transferred += bytes_seen
-                self.callback(self.transferred / self.file_size)
-        file_size = float(os.path.getsize(filename))
-        progress_tracker = Progress(progress_callback, file_size)
+                per_done = self.transferred / self.file_size
+                if floor(self.step_size * per_prev_done) != floor(self.step_size * per_done):
+                    self.callback(filename, per_done)
+        progress_tracker = Progress(progress_callback, os.path.getsize(filename))
     else:
         progress_tracker = None
 
     # actually do the upload
     client = boto3.client('s3', aws_access_key_id=access_key, aws_secret_access_key=secret_key)
     transfer = S3Transfer(client)
-    transfer.upload_file(filename, upload_params['s3_bucket'], upload_params['file_id'],
-                         extra_args={'ServerSideEncryption': 'AES256'}, callback=progress_tracker)
+    try:
+        transfer.upload_file(filename, upload_params['s3_bucket'], upload_params['file_id'],
+                             extra_args={'ServerSideEncryption': 'AES256'},
+                             callback=progress_tracker)
+    except S3UploadFailedError:
+        raise UploadException('Upload has failed. Please contact help@onecodex.com '
+                              'if you experience further issues')
 
     # return completed status to the one codex server
     s3_path = 's3://{}/{}'.format(upload_params['s3_bucket'], upload_params['file_id'])
@@ -133,5 +143,5 @@ def upload_file(filename, apikey, server_url, progress_callback=None):
                         json={'s3_path': s3_path, 'filename': os.path.basename(filename)})
 
     if req.status_code != 200:
-        raise UploadException('Upload has failed. Please contact help@onecodex.com if you '
-                              'experience further issues')
+        raise UploadException('Upload confirmation has failed. Please contact help@onecodex.com '
+                              'if you experience further issues')

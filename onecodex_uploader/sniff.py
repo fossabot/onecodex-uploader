@@ -19,10 +19,10 @@ def sniff_file(filename, compress=None):
     Given a sequencing file, return a JSON blob of relevant summary statistics
     about that file.
     """
-    if os.path.getsize(filename) < 35:
-        return {'file_type': 'bad', 'msg': 'File is too small'}
-    elif not os.path.exists(filename):
+    if not os.path.exists(filename):
         return {'file_type': 'bad', 'msg': 'File does not exist'}
+    elif os.path.getsize(filename) < 35:
+        return {'file_type': 'bad', 'msg': 'File is too small'}
 
     if compress is None:
         with open(filename, 'r') as seq_file:
