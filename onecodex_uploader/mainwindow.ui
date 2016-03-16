@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>320</width>
-    <height>320</height>
+    <width>450</width>
+    <height>450</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -24,8 +24,8 @@
   </property>
   <property name="maximumSize">
    <size>
-    <width>320</width>
-    <height>320</height>
+    <width>500</width>
+    <height>500</height>
    </size>
   </property>
   <property name="acceptDrops">
@@ -193,8 +193,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>320</width>
-     <height>22</height>
+     <width>450</width>
+     <height>38</height>
     </rect>
    </property>
   </widget>
