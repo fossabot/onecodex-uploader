@@ -252,13 +252,13 @@ class OCUploader(QtGui.QMainWindow):
         self.reset()
 
     def reset(self):
-        self.ui.usernameField.setEnabled(True)
-        self.ui.passwordField.setEnabled(True)
         self.ui.fileButton.show()
         self.ui.uploadProgress.hide()
         self.ui.uploadProgress.setRange(0, 400)
         self.ui.uploadProgress.reset()
         self.ui.uploadButton.setEnabled(True)
+        self.ui.usernameField.setEnabled(True)
+        self.ui.passwordField.setEnabled(True)
 
     def closeEvent(self, event):
         if self.worker is not None and self.worker.isRunning():
@@ -266,9 +266,12 @@ class OCUploader(QtGui.QMainWindow):
             quit = QtGui.QMessageBox.question(self, 'Warning!', q_msg,
                                               QtGui.QMessageBox.Yes, QtGui.QMessageBox.No)
             if quit == QtGui.QMessageBox.Yes:
-                # FIXME; doesn't actually stop most of the time
+                # nuke everything to stop boto from hanging up
                 self.worker.terminate()
-                event.accept()
+                os.kill(os.getpid(), 9)
+                # the above is insane, but otherwise boto is literally unstopable and the user
+                # has to force-quit the application itself; would love to find a better way!
+                # event.accept()
             else:
                 event.ignore()
         else:
