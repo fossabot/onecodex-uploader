@@ -231,7 +231,13 @@ class OCUploader(QtGui.QMainWindow):
     def select_file_button(self):
         open_dialog = QtGui.QFileDialog()
         open_dialog.setFileMode(QtGui.QFileDialog.ExistingFile)
-        name = open_dialog.getOpenFileName(self, 'Upload File', '', 'Sequencing File (*.*)')
+        if platform.system() == 'Windows':
+            options = QtGui.QFileDialog.DontUseNativeDialog
+        else:
+            options = 0
+
+        name = open_dialog.getOpenFileName(self, 'Upload File', '', 'Sequencing File (*.*)',
+                                           options=options)
 
         if name[0] != '':
             self.files_model.add_file(name[0])
