@@ -12,7 +12,7 @@ from onecodex_uploader.upload import check_version, upload_file, get_apikey, Upl
 from onecodex_uploader.sniff import sniff_file
 from onecodex_uploader.version import __version__
 
-OC_SERVER = 'https://app.onecodex.com/'
+OC_SERVER = os.environ.get('ONE_CODEX_SERVER', 'https://app.onecodex.com/')
 
 
 def resource_path(relative_path):
