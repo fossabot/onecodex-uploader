@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 from setuptools import setup
 
-execfile('onecodex_uploader/version.py')
+with open('onecodex_uploader/version.py') as import_file:
+    exec(import_file.read())
+
 
 options = {
     'name': 'onecodex-uploader',
