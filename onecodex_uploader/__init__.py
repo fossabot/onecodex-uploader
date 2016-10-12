@@ -1,11 +1,13 @@
 from __future__ import print_function
 
+from base64 import b64decode
 import os
 import platform
 import sys
 from pkg_resources import resource_filename
 
 from PySide import QtCore, QtGui
+from raven import Client
 
 from onecodex_uploader.mainwindow_ui import Ui_MainWindow
 from onecodex_uploader.upload import check_version, upload_file, get_apikey, UploadException
@@ -13,6 +15,13 @@ from onecodex_uploader.sniff import sniff_file
 from onecodex_uploader.version import __version__
 
 OC_SERVER = os.environ.get('ONE_CODEX_SERVER', 'https://app.onecodex.com/')
+
+# set up a sentry client for error reporting; we obfuscate the key slightly, but it sounds like
+# include the full DSN here (and not the public one) (github.com/getsentry/raven-python/issues/569)
+key = b64decode("NmMxNDFkMzA4YjIwNDEzZDk3NmFhZTBiYTZjNGE4ZDM6"
+                "MWM2ZmY5NDIxN2ZhNDYyMGExMjIwZmNjNmQyMWE0NGQ=")
+client = Client(dsn='https://{}@sentry.io/105644'.format(key), release=__version__)
+client.extra_context({'platform': platform.platform()})
 
 
 def resource_path(relative_path):
@@ -53,6 +62,7 @@ class FileViewer(QtGui.QListView):
 
     def dropEvent(self, event):
         if event.mimeData().hasUrls:
+            client.capture_breadcrumb(message='Dropped something on the FileViewer')
             event.setDropAction(QtCore.Qt.CopyAction)
             event.accept()
             for url in event.mimeData().urls():
@@ -131,6 +141,9 @@ class OCWorker(QtCore.QThread):
             self.upload_finished.emit('')
         except UploadException as e:
             self.upload_finished.emit(str(e))
+            client.captureMessage(str(e))
+        except:
+            client.captureException()
 
 
 class OCUploader(QtGui.QMainWindow):
@@ -186,6 +199,7 @@ class OCUploader(QtGui.QMainWindow):
             QtGui.QApplication.instance().quit()
 
     def upload_button(self):
+        client.capture_breadcrumb(message='Clicked Upload')
         self.ui.fileButton.hide()
         self.ui.uploadButton.setEnabled(False)
         self.ui.usernameField.setEnabled(False)
@@ -221,6 +235,7 @@ class OCUploader(QtGui.QMainWindow):
         elif len(self.files_model.file_names) == 0:
             QtGui.QMessageBox.critical(self, 'Error!', 'No file selected.', QtGui.QMessageBox.Abort)
         else:
+            client.user_context({'username': username})
             filename = self.files_model.file_names[0]
             self.worker = OCWorker(filename, apikey)
             self.worker.upload_progress.connect(self.upload_progress)
@@ -229,6 +244,7 @@ class OCUploader(QtGui.QMainWindow):
             self.worker.start()
 
     def select_file_button(self):
+        client.capture_breadcrumb(message='Clicked Select File')
         open_dialog = QtGui.QFileDialog()
         open_dialog.setFileMode(QtGui.QFileDialog.ExistingFile)
         if platform.system() == 'Windows':
