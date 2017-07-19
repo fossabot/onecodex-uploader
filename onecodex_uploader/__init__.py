@@ -18,9 +18,9 @@ OC_SERVER = os.environ.get('ONE_CODEX_SERVER', 'https://app.onecodex.com/')
 
 # set up a sentry client for error reporting; we obfuscate the key slightly, but it sounds like
 # include the full DSN here (and not the public one) (github.com/getsentry/raven-python/issues/569)
-key = b64decode("NmMxNDFkMzA4YjIwNDEzZDk3NmFhZTBiYTZjNGE4ZDM6"
-                "MWM2ZmY5NDIxN2ZhNDYyMGExMjIwZmNjNmQyMWE0NGQ=")
-client = Client(dsn='https://{}@sentry.io/105644'.format(key), release=__version__)
+key = b64decode("MTNkMmNiNGZhMGQ0NDQyNTkwZjlmY2Y5NzBjYjAyZmE6"
+                "YTJjMTU3Nzg1ZDlhNDkyZmI0ZGFiODIxZmYzYmFiZjQ=")
+client = Client(dsn='https://{}@sentry.onecodex.com/8'.format(key), release=__version__)
 client.extra_context({'platform': platform.platform()})
 
 
