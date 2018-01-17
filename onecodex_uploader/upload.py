@@ -94,7 +94,7 @@ def upload_file(filename, apikey, server_url, progress_callback=None, n_callback
     upload progresses.
     """
     # first check with the one codex server to get upload parameters
-    req = requests.get(server_url + 'api/v0/init_multipart_upload', auth=(apikey, ''))
+    req = requests.post(server_url + 'api/v1/init_multipart_upload', auth=(apikey, ''))
     if req.status_code == 402:
         raise UploadException('Upload limits have been exceeded. Please check your plan.')
     elif req.status_code != 200:
